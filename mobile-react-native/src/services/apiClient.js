@@ -18,10 +18,7 @@ async function request(path, { method = "GET", token, body } = {}) {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const detailMessage = Array.isArray(data?.errors) && data.errors.length > 0
-      ? data.errors[0]?.message
-      : "";
-    throw new Error(detailMessage || data.message || "Request failed");
+    throw new Error(data.message || "Request failed");
   }
 
   return data;
@@ -50,22 +47,7 @@ function equipmentPayload(payload) {
     depositAmount: payload.depositAmount,
     quantityAvailable: payload.quantityAvailable,
     quantityTotal: payload.quantityTotal,
-  };
-}
-
-function jobPayload(payload) {
-  return {
-    jobTitle: payload.jobTitle,
-    jobDescription: payload.jobDescription,
-    category: payload.category,
-    locationAddress: payload.locationAddress,
-    city: payload.city,
-    district: payload.district,
-    urgencyLevel: payload.urgencyLevel || "standard",
-    budgetMin: Number(payload.budgetMin || 0),
-    budgetMax: Number(payload.budgetMax || 0),
-    estimatedDurationHours: Number(payload.estimatedDurationHours || 1),
-    preferredStartDate: payload.preferredStartDate || undefined,
+    imagePath: payload.imagePath,
   };
 }
 
@@ -90,89 +72,9 @@ export async function getJobs(token) {
   return contentOrArray(response);
 }
 
-function withQuery(path, params = {}) {
-  const qs = new URLSearchParams();
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== "") {
-      qs.append(key, String(value));
-    }
-  });
-  const query = qs.toString();
-  return query ? `${path}?${query}` : path;
-}
-
-export async function getJobsWithFilters(token, filters = {}) {
-  const response = await request(withQuery("/jobs", filters), { token });
-  return contentOrArray(response);
-}
-
-export async function getJob(token, jobId) {
-  const response = await request(`/jobs/${jobId}`, { token });
-  return response.data;
-}
-
 export async function getMyJobs(token) {
   const response = await request("/jobs/my", { token });
   return contentOrArray(response);
-}
-
-export async function createJob(token, payload) {
-  const response = await request("/jobs", {
-    method: "POST",
-    token,
-    body: jobPayload(payload),
-  });
-  return response.data;
-}
-
-export async function updateJob(token, jobId, payload) {
-  const response = await request(`/jobs/${jobId}`, {
-    method: "PUT",
-    token,
-    body: jobPayload(payload),
-  });
-  return response.data;
-}
-
-export async function deleteJob(token, jobId) {
-  return request(`/jobs/${jobId}`, {
-    method: "DELETE",
-    token,
-  });
-}
-
-export async function applyToJob(token, jobId, payload) {
-  return request(`/jobs/${jobId}/apply`, {
-    method: "POST",
-    token,
-    body: {
-      coverLetter: payload.coverLetter,
-      proposedRate: Number(payload.proposedRate || 0),
-    },
-  });
-}
-
-export async function getMyApplications(token) {
-  const statuses = ["active", "assigned", "completed", "cancelled", "expired", "draft"];
-  const seen = new Set();
-  const jobs = [];
-
-  for (const status of statuses) {
-    try {
-      const response = await request(withQuery("/jobs", { status, limit: 100 }), { token });
-      const list = contentOrArray(response);
-      for (const job of list) {
-        if (!seen.has(job._id)) {
-          seen.add(job._id);
-          jobs.push(job);
-        }
-      }
-    } catch (_error) {
-      // Continue with available statuses.
-    }
-  }
-
-  return jobs;
 }
 
 export async function getProfile(token) {
@@ -180,24 +82,10 @@ export async function getProfile(token) {
   return response.data;
 }
 
-export async function updateProfile(token, payload) {
-  const response = await request("/profile/me", {
-    method: "PUT",
-    token,
-    body: payload,
-  });
-  return response.data;
-}
-
 export async function getWorkers(token, district = "") {
   const query = district ? `?district=${encodeURIComponent(district)}` : "";
   const response = await request(`/profile/workers${query}`, { token });
   return contentOrArray(response);
-}
-
-export async function getWorkerProfile(token, workerId) {
-  const response = await request(`/profile/workers/${workerId}`, { token });
-  return response.data;
 }
 
 export async function getMyBookings(token, asRole = "customer") {
@@ -302,11 +190,6 @@ export async function deleteComplaint(token, complaintId) {
 
 export async function getMyReviews(token) {
   const response = await request("/reviews/my", { token });
-  return contentOrArray(response);
-}
-
-export async function getReviews(token) {
-  const response = await request("/reviews", { token });
   return contentOrArray(response);
 }
 

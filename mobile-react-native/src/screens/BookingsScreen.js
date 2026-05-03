@@ -18,69 +18,16 @@ import {
   getWorkers,
   updateBookingStatus,
 } from "../services/apiClient";
-import { colors, layout } from "../styles/theme";
 
-const STATUS_ACTIONS_BY_VIEW = {
-  customer: {
-    requested: ["cancelled"],
-    accepted: ["cancelled"],
-    in_progress: [],
-    completed: [],
-    cancelled: [],
-    rejected: [],
-  },
-  worker: {
-    requested: ["accepted", "rejected"],
-    accepted: ["in_progress", "cancelled"],
-    in_progress: ["completed", "cancelled"],
-    completed: [],
-    cancelled: [],
-    rejected: [],
-  },
+const STATUS_ACTIONS = {
+  requested: ["accepted", "rejected"],
+  accepted: ["in_progress", "cancelled"],
+  in_progress: ["completed", "cancelled"],
 };
 
 function formatDate(value) {
   if (!value) return "-";
   return new Date(value).toLocaleDateString();
-}
-
-function isValidObjectId(value) {
-  return /^[a-f0-9]{24}$/i.test(String(value || "").trim());
-}
-
-function normalizeTimeInput(value) {
-  const match = String(value || "").trim().match(/^(\d{1,2}):(\d{2})$/);
-  if (!match) return null;
-  const hour = Number(match[1]);
-  const minute = Number(match[2]);
-  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return null;
-  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
-  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-}
-
-function buildScheduledDateTime(dateValue, timeValue) {
-  const dateMatch = String(dateValue || "").trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  const normalizedTime = normalizeTimeInput(timeValue);
-  if (!dateMatch || !normalizedTime) return null;
-
-  const year = Number(dateMatch[1]);
-  const month = Number(dateMatch[2]);
-  const day = Number(dateMatch[3]);
-  const [hour, minute] = normalizedTime.split(":").map(Number);
-
-  const localDateTime = new Date(year, month - 1, day, hour, minute, 0, 0);
-  const validDate =
-    localDateTime.getFullYear() === year &&
-    localDateTime.getMonth() === month - 1 &&
-    localDateTime.getDate() === day;
-
-  if (!validDate) return null;
-
-  return {
-    localDateTime,
-    isoDateTime: localDateTime.toISOString(),
-    normalizedTime,
-  };
 }
 
 export default function BookingsScreen() {
@@ -136,53 +83,13 @@ export default function BookingsScreen() {
     return map;
   }, [workers]);
 
-  const selectedWorker = useMemo(
-    () => workers.find((worker) => worker._id === form.worker) || null,
-    [workers, form.worker]
-  );
-
-  const selectedJob = useMemo(
-    () => jobs.find((job) => job._id === form.job) || null,
-    [jobs, form.job]
-  );
-
   function updateForm(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
   async function submitBooking() {
-    if (!customerMode) {
-      setActionError("Only customer accounts can create bookings.");
-      return;
-    }
-
-    const workerId = String(form.worker || "").trim();
-    const jobId = String(form.job || "").trim();
-    const dateTime = buildScheduledDateTime(form.scheduledDate, form.scheduledTime);
-    const durationHours = Number(form.estimatedDurationHours);
-
-    if (!workerId) {
-      setActionError("Please choose a worker.");
-      return;
-    }
-    if (!isValidObjectId(workerId)) {
-      setActionError("Selected worker is invalid. Please choose from the worker list.");
-      return;
-    }
-    if (jobId && !isValidObjectId(jobId)) {
-      setActionError("Selected job is invalid. Please choose from your job list.");
-      return;
-    }
-    if (!dateTime) {
-      setActionError("Please enter date as YYYY-MM-DD and time as HH:MM.");
-      return;
-    }
-    if (dateTime.localDateTime <= new Date()) {
-      setActionError("Booking date and time must be in the future.");
-      return;
-    }
-    if (!Number.isFinite(durationHours) || durationHours < 0.5 || durationHours > 24) {
-      setActionError("Estimated duration must be between 0.5 and 24 hours.");
+    if (!form.worker || !form.scheduledDate || !form.scheduledTime) {
+      setActionError("Worker, date and time are required");
       return;
     }
 
@@ -190,12 +97,12 @@ export default function BookingsScreen() {
       setActionError("");
       setCreateBusy(true);
       await createBooking(token, {
-        worker: workerId,
-        job: jobId || undefined,
-        scheduledDate: dateTime.isoDateTime,
-        scheduledTime: dateTime.normalizedTime,
-        estimatedDurationHours: durationHours,
-        notes: String(form.notes || "").trim(),
+        worker: form.worker,
+        job: form.job || undefined,
+        scheduledDate: new Date(form.scheduledDate).toISOString(),
+        scheduledTime: form.scheduledTime,
+        estimatedDurationHours: Number(form.estimatedDurationHours || 2),
+        notes: form.notes,
       });
 
       setForm({
@@ -247,7 +154,7 @@ export default function BookingsScreen() {
                 onPress={() => setRoleView("customer")}
               >
                 <Text style={[styles.segmentText, roleView === "customer" && styles.segmentTextActive]}>
-                  Customer Bookings
+                  As Customer
                 </Text>
               </Pressable>
               <Pressable
@@ -255,7 +162,7 @@ export default function BookingsScreen() {
                 onPress={() => setRoleView("worker")}
               >
                 <Text style={[styles.segmentText, roleView === "worker" && styles.segmentTextActive]}>
-                  Worker Bookings
+                  As Worker
                 </Text>
               </Pressable>
               <Pressable style={styles.refreshBtn} onPress={loadData}>
@@ -263,28 +170,17 @@ export default function BookingsScreen() {
               </Pressable>
             </View>
 
-            <Text style={styles.sectionTitle}>
-              {roleView === "customer"
-                ? "Showing bookings where you are the customer."
-                : "Showing bookings where you are the worker."}
-            </Text>
-
-            {customerMode && roleView === "customer" ? (
+            {customerMode ? (
               <View style={styles.card}>
                 <Text style={styles.cardTitle}>Create Booking</Text>
 
                 <Text style={styles.label}>Worker</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Choose a worker from the list below"
+                  placeholder="Paste worker ID or select below"
                   value={form.worker}
                   onChangeText={(value) => updateForm("worker", value)}
                 />
-                {selectedWorker ? (
-                  <Text style={styles.helper}>
-                    Selected worker: {`${selectedWorker.firstName || ""} ${selectedWorker.lastName || ""}`.trim()}
-                  </Text>
-                ) : null}
 
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillRow}>
                   {workers.slice(0, 12).map((worker) => {
@@ -306,11 +202,10 @@ export default function BookingsScreen() {
                 <Text style={styles.label}>Job (optional)</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Choose a job from your list below"
+                  placeholder="Paste job ID or select below"
                   value={form.job}
                   onChangeText={(value) => updateForm("job", value)}
                 />
-                {selectedJob ? <Text style={styles.helper}>Selected job: {selectedJob.jobTitle || "Untitled Job"}</Text> : null}
 
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillRow}>
                   {jobs.slice(0, 12).map((job) => (
@@ -366,9 +261,7 @@ export default function BookingsScreen() {
               </View>
             ) : (
               <View style={styles.card}>
-                <Text style={styles.helper}>
-                  Create Booking is available only in the Customer Bookings section.
-                </Text>
+                <Text style={styles.helper}>Worker accounts cannot create bookings. Switch to customer for create flow.</Text>
               </View>
             )}
 
@@ -380,13 +273,7 @@ export default function BookingsScreen() {
         data={bookings}
         keyExtractor={(item) => item._id}
         contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          !loading ? (
-            <Text style={styles.helper}>
-              {roleView === "customer" ? "No customer bookings found." : "No worker bookings found."}
-            </Text>
-          ) : null
-        }
+        ListEmptyComponent={!loading ? <Text style={styles.helper}>No bookings found.</Text> : null}
         renderItem={({ item }) => {
           const workerName = item.worker?.firstName
             ? `${item.worker.firstName} ${item.worker.lastName || ""}`.trim()
@@ -394,7 +281,6 @@ export default function BookingsScreen() {
           const customerName = item.customer?.firstName
             ? `${item.customer.firstName} ${item.customer.lastName || ""}`.trim()
             : "Unknown";
-          const allowedActions = STATUS_ACTIONS_BY_VIEW[roleView]?.[item.bookingStatus] || [];
 
           return (
             <View style={styles.card}>
@@ -405,7 +291,7 @@ export default function BookingsScreen() {
               <Text style={styles.meta}>Customer: {customerName}</Text>
 
               <View style={styles.actionRow}>
-                {allowedActions.map((status) => (
+                {(STATUS_ACTIONS[item.bookingStatus] || []).map((status) => (
                   <Pressable
                     key={status}
                     style={styles.smallBtn}
@@ -429,20 +315,16 @@ export default function BookingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: "#f8fafc",
   },
   headerWrap: {
-    paddingHorizontal: layout.pagePadding,
+    paddingHorizontal: 16,
     paddingTop: 12,
   },
   title: {
     fontSize: 20,
     fontWeight: "700",
-    color: colors.text,
-    marginBottom: 8,
-  },
-  sectionTitle: {
-    color: colors.textMuted,
+    color: "#111827",
     marginBottom: 12,
   },
   segmentRow: {
@@ -455,77 +337,71 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: "#e5e7eb",
   },
   segmentBtnActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
+    backgroundColor: "#1d4ed8",
   },
   segmentText: {
-    color: colors.text,
+    color: "#1f2937",
     fontWeight: "600",
   },
   segmentTextActive: {
-    color: colors.primary,
+    color: "#fff",
   },
   refreshBtn: {
     marginLeft: "auto",
-    backgroundColor: colors.surfaceLight,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: "#cbd5e1",
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 8,
   },
   refreshText: {
-    color: colors.text,
+    color: "#0f172a",
     fontWeight: "600",
   },
   list: {
-    paddingHorizontal: layout.pagePadding,
+    paddingHorizontal: 16,
     paddingBottom: 20,
     gap: 10,
   },
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 14,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: "#e2e8f0",
     marginBottom: 10,
   },
   cardTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: colors.text,
+    color: "#111827",
     marginBottom: 10,
   },
   itemTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: colors.text,
+    color: "#0f172a",
     marginBottom: 6,
   },
   meta: {
-    color: colors.textMuted,
+    color: "#334155",
     marginBottom: 4,
   },
   label: {
-    color: colors.text,
+    color: "#334155",
     fontWeight: "600",
     marginBottom: 4,
     marginTop: 6,
   },
   input: {
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: "#d1d5db",
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: colors.surfaceLight,
-    color: colors.text,
+    backgroundColor: "#fff",
   },
   textArea: {
     minHeight: 80,
@@ -540,39 +416,38 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceLight,
+    borderColor: "#cbd5e1",
     marginRight: 8,
   },
   pillActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
+    backgroundColor: "#1d4ed8",
+    borderColor: "#1d4ed8",
   },
   pillText: {
-    color: colors.text,
+    color: "#1f2937",
     fontSize: 12,
   },
   pillTextActive: {
-    color: colors.primary,
+    color: "#fff",
   },
   primaryBtn: {
     marginTop: 12,
-    backgroundColor: colors.accent,
+    backgroundColor: "#2563eb",
     borderRadius: 10,
     minHeight: 44,
     alignItems: "center",
     justifyContent: "center",
   },
   primaryBtnText: {
-    color: colors.primary,
+    color: "#fff",
     fontWeight: "700",
   },
   error: {
-    color: colors.danger,
+    color: "#dc2626",
     marginBottom: 10,
   },
   helper: {
-    color: colors.textMuted,
+    color: "#475569",
     marginBottom: 10,
   },
   actionRow: {
@@ -582,19 +457,17 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   smallBtn: {
-    backgroundColor: colors.surfaceLight,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: "#dbeafe",
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
   },
   smallBtnText: {
-    color: colors.text,
+    color: "#1e3a8a",
     fontWeight: "600",
     fontSize: 12,
   },
   deleteBtn: {
-    backgroundColor: "#6b1d1d",
+    backgroundColor: "#fee2e2",
   },
 });

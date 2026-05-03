@@ -22,6 +22,7 @@ router.get('/my', auth, async (req, res) => {
             .populate('worker', 'firstName lastName email phone skills')
             .populate('customer', 'firstName lastName email phone')
             .populate('job', 'jobTitle')
+            .populate('equipment', 'equipmentName equipmentDescription rentalPricePerDay')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limitNum);
@@ -51,7 +52,8 @@ router.get('/:id', auth, async (req, res) => {
         const booking = await Booking.findById(req.params.id)
             .populate('worker', 'firstName lastName email phone skills')
             .populate('customer', 'firstName lastName email phone')
-            .populate('job', 'jobTitle jobDescription');
+            .populate('job', 'jobTitle jobDescription')
+            .populate('equipment', 'equipmentName equipmentDescription rentalPricePerDay imagePath');
         if (!booking) return res.status(404).json({ status: 'error', message: 'Booking not found' });
         
         // Check authorization

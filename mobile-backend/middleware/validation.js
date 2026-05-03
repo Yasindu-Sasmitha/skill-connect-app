@@ -67,7 +67,7 @@ const sanitizeJobData = (data) => {
 };
 
 const sanitizeBookingData = (data) => {
-    const allowed = ['worker', 'job', 'scheduledDate', 'scheduledTime', 'estimatedDurationHours', 'notes'];
+    const allowed = ['worker', 'job', 'equipment', 'scheduledDate', 'scheduledTime', 'estimatedDurationHours', 'notes'];
     const sanitized = {};
     allowed.forEach(field => {
         if (data[field] !== undefined) sanitized[field] = data[field];

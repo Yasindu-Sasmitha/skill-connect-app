@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FlatList,
+  Image,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -11,6 +12,7 @@ import {
 } from "react-native";
 import { useAuth } from "../context/AuthContext";
 import {
+  createBooking,
   createEquipment,
   deleteEquipment,
   getEquipment,
@@ -28,6 +30,7 @@ const INITIAL_FORM = {
   quantityTotal: "1",
   isAvailable: true,
   location: "",
+  imagePath: "",
 };
 
 function getSupplierId(item) {
@@ -96,6 +99,7 @@ export default function EquipmentScreen() {
       quantityTotal: String(item.quantityTotal ?? 1),
       isAvailable: item.isAvailable !== false,
       location: item.location || "",
+      imagePath: item.imagePath || "",
     });
   }
 
@@ -150,6 +154,36 @@ export default function EquipmentScreen() {
     }
   }
 
+  async function handleRent(item) {
+    if (supplierMode) {
+      setActionError("Suppliers cannot rent equipment");
+      return;
+    }
+
+    try {
+      setActionError("");
+      setSubmitting(true);
+      
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      const payload = {
+        equipment: item._id,
+        scheduledDate: tomorrow.toISOString(),
+        scheduledTime: "09:00",
+        notes: `Rental request for ${item.equipmentName}`,
+      };
+
+      await createBooking(token, payload);
+      alert("Rental request sent successfully! You can view it in your bookings.");
+      await loadData();
+    } catch (e) {
+      setActionError(e.message || "Failed to request rental");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <FlatList
@@ -165,13 +199,11 @@ export default function EquipmentScreen() {
               </Pressable>
             </View>
 
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>{editingId ? "Edit Equipment" : "Create Equipment"}</Text>
-              {!supplierMode ? (
-                <Text style={styles.helper}>Current role is {user?.role || "unknown"}. Supplier role is required for create/update/delete.</Text>
-              ) : null}
+            {supplierMode ? (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>{editingId ? "Edit Equipment" : "Create Equipment"}</Text>
 
-              <Text style={styles.label}>Name</Text>
+                <Text style={styles.label}>Name</Text>
               <TextInput
                 style={styles.input}
                 placeholder="Heavy Duty Drill"
@@ -248,6 +280,14 @@ export default function EquipmentScreen() {
                 onChangeText={(value) => updateForm("location", value)}
               />
 
+              <Text style={styles.label}>Image URL (optional)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="https://example.com/image.jpg"
+                value={form.imagePath}
+                onChangeText={(value) => updateForm("imagePath", value)}
+              />
+
               <View style={styles.toggleRow}>
                 <Text style={styles.label}>Available</Text>
                 <Pressable
@@ -272,6 +312,7 @@ export default function EquipmentScreen() {
                 </Pressable>
               ) : null}
             </View>
+            ) : null}
 
             {error ? <Text style={styles.error}>{error}</Text> : null}
             {actionError ? <Text style={styles.error}>{actionError}</Text> : null}
@@ -287,6 +328,9 @@ export default function EquipmentScreen() {
 
           return (
             <View style={styles.card}>
+              {item.imagePath ? (
+                <Image source={{ uri: item.imagePath }} style={styles.itemImage} resizeMode="cover" />
+              ) : null}
               <Text style={styles.itemTitle}>{item.equipmentName || item.name || "Equipment"}</Text>
               <Text style={styles.meta}>Category: {item.category || "-"}</Text>
               <Text style={styles.meta}>Condition: {item.equipmentCondition || "-"}</Text>
@@ -304,7 +348,11 @@ export default function EquipmentScreen() {
                     <Text style={styles.smallBtnText}>Delete</Text>
                   </Pressable>
                 </View>
-              ) : null}
+              ) : (
+                <Pressable style={styles.primaryBtn} onPress={() => handleRent(item)} disabled={submitting}>
+                  <Text style={styles.primaryBtnText}>{submitting ? "Processing..." : "Rent Equipment"}</Text>
+                </Pressable>
+              )}
             </View>
           );
         }}
@@ -465,5 +513,12 @@ const styles = StyleSheet.create({
   error: {
     color: "#dc2626",
     marginBottom: 10,
+  },
+  itemImage: {
+    width: "100%",
+    height: 150,
+    borderRadius: 8,
+    marginBottom: 10,
+    backgroundColor: "#e2e8f0",
   },
 });

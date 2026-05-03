@@ -41,7 +41,7 @@ const sanitizeEquipmentData = (data = {}) => {
 router.get('/', auth, async (req, res) => {
     try {
         const { page = 1, limit = 20, category } = req.query;
-        
+
         const pageNum = Math.max(1, parseInt(page) || 1);
         const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
         const skip = (pageNum - 1) * limitNum;
@@ -57,9 +57,9 @@ router.get('/', auth, async (req, res) => {
 
         const total = await Equipment.countDocuments(filter);
 
-        res.json({ 
-            status: 'success', 
-            data: { 
+        res.json({
+            status: 'success',
+            data: {
                 content: equipment,
                 pagination: {
                     page: pageNum,
@@ -67,7 +67,7 @@ router.get('/', auth, async (req, res) => {
                     total,
                     pages: Math.ceil(total / limitNum)
                 }
-            } 
+            }
         });
     } catch (error) {
         res.status(500).json({ status: 'error', message: 'Failed to fetch equipment' });
@@ -101,9 +101,12 @@ router.post('/', auth, async (req, res) => {
         await equipment.save();
         res.status(201).json({ status: 'success', data: equipment });
     } catch (error) {
-        const detailMessage = error?.name === 'ValidationError'
-            ? Object.values(error.errors || {})[0]?.message
-            : '';
+        let detailMessage = '';
+        if (error?.name === 'ValidationError') {
+            detailMessage = Object.values(error.errors || {})[0]?.message;
+        } else {
+            detailMessage = error.message; // Reveal other errors like MongoServerError or TypeErrors
+        }
         res.status(400).json({ status: 'error', message: detailMessage || 'Failed to add equipment' });
     }
 });
@@ -123,9 +126,12 @@ router.put('/:id', auth, async (req, res) => {
 
         res.json({ status: 'success', data: equipment });
     } catch (error) {
-        const detailMessage = error?.name === 'ValidationError'
-            ? Object.values(error.errors || {})[0]?.message
-            : '';
+        let detailMessage = '';
+        if (error?.name === 'ValidationError') {
+            detailMessage = Object.values(error.errors || {})[0]?.message;
+        } else {
+            detailMessage = error.message;
+        }
         res.status(400).json({ status: 'error', message: detailMessage || 'Failed to update equipment' });
     }
 });

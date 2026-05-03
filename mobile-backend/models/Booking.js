@@ -6,10 +6,15 @@ const bookingSchema = new mongoose.Schema({
         ref: 'Job',
         index: true
     },
+    equipment: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Equipment',
+        index: true
+    },
     worker: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true,
+        required: false,
         index: true
     },
     customer: {
