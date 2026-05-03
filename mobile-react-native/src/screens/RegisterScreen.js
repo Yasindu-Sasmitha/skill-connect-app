@@ -7,8 +7,16 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  View,
 } from "react-native";
 import { useAuth } from "../context/AuthContext";
+
+const ROLES = [
+  { value: "customer", label: "Customer" },
+  { value: "worker", label: "Worker" },
+  { value: "supplier", label: "Supplier" },
+  { value: "admin", label: "Admin" },
+];
 
 const initialForm = {
   firstName: "",
@@ -61,6 +69,29 @@ export default function RegisterScreen() {
         <TextInput style={styles.input} placeholder="District" value={form.district} onChangeText={(v) => updateField("district", v)} />
         <TextInput style={styles.input} placeholder="City" value={form.city} onChangeText={(v) => updateField("city", v)} />
 
+        <Text style={styles.label}>Select Role</Text>
+        <View style={styles.roleContainer}>
+          {ROLES.map((role) => (
+            <Pressable
+              key={role.value}
+              style={[
+                styles.roleButton,
+                form.role === role.value && styles.roleButtonActive,
+              ]}
+              onPress={() => updateField("role", role.value)}
+            >
+              <Text
+                style={[
+                  styles.roleText,
+                  form.role === role.value && styles.roleTextActive,
+                ]}
+              >
+                {role.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <Pressable style={styles.button} onPress={handleRegister} disabled={submitting}>
@@ -108,5 +139,38 @@ const styles = StyleSheet.create({
   },
   error: {
     color: "#dc2626",
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
+    marginTop: 8,
+  },
+  roleContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 8,
+  },
+  roleButton: {
+    flexBasis: "48%",
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    alignItems: "center",
+    backgroundColor: "#fff",
+  },
+  roleButtonActive: {
+    backgroundColor: "#2d7ef7",
+    borderColor: "#2d7ef7",
+  },
+  roleText: {
+    fontSize: 14,
+    color: "#4b5563",
+    fontWeight: "500",
+  },
+  roleTextActive: {
+    color: "#fff",
   },
 });

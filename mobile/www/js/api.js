@@ -3,7 +3,7 @@
 // ========================= //
 
 // Use deployed backend for emulator/device/web API calls.
-const API_BASE = 'https://skill-connect-mobile-backup-api.onrender.com/api';
+const API_BASE = 'http://localhost:5000/api/v1';
 
 const api = {
     // Get stored token

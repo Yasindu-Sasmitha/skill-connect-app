@@ -77,8 +77,39 @@ export async function getMyJobs(token) {
   return contentOrArray(response);
 }
 
+export async function createJob(token, payload) {
+  const response = await request("/jobs", {
+    method: "POST",
+    token,
+    body: payload,
+  });
+  return response.data;
+}
+
+export async function updateJob(token, jobId, payload) {
+  const response = await request(`/jobs/${jobId}`, {
+    method: "PUT",
+    token,
+    body: payload,
+  });
+  return response.data;
+}
+
+export async function deleteJob(token, jobId) {
+  return request(`/jobs/${jobId}`, { method: "DELETE", token });
+}
+
 export async function getProfile(token) {
   const response = await request("/profile/me", { token });
+  return response.data;
+}
+
+export async function updateProfile(token, payload) {
+  const response = await request("/profile/me", {
+    method: "PUT",
+    token,
+    body: payload,
+  });
   return response.data;
 }
 

@@ -105,7 +105,10 @@ router.post('/', auth, async (req, res) => {
         await job.save();
         res.status(201).json({ status: 'success', data: job });
     } catch (error) {
-        res.status(400).json({ status: 'error', message: 'Failed to create job' });
+        const msg = error?.name === 'ValidationError'
+            ? Object.values(error.errors || {})[0]?.message
+            : error.message;
+        res.status(400).json({ status: 'error', message: msg || 'Failed to create job' });
     }
 });
 
@@ -122,7 +125,10 @@ router.put('/:id', auth, async (req, res) => {
 
         res.json({ status: 'success', data: job });
     } catch (error) {
-        res.status(400).json({ status: 'error', message: 'Failed to update job' });
+        const msg = error?.name === 'ValidationError'
+            ? Object.values(error.errors || {})[0]?.message
+            : error.message;
+        res.status(400).json({ status: 'error', message: msg || 'Failed to update job' });
     }
 });
 
